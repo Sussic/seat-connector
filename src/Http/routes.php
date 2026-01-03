@@ -74,6 +74,10 @@ Route::group([
                 ->name('seat-connector.acl.remove')
                 ->uses('AccessController@remove');
 
+            Route::post('/sets/exclude')
+                ->name('seat-connector.sets.exclude')
+                ->uses('AccessController@toggleExcluded');
+
             Route::group([
                 'prefix' => 'api',
             ], function (): void {
@@ -92,6 +96,10 @@ Route::group([
                 Route::get('/sets')
                     ->name('seat-connector.api.sets')
                     ->uses('LookupController@getSets');
+
+                Route::get('/sets/all')
+                    ->name('seat-connector.api.sets.all')
+                    ->uses('LookupController@getAllSets');
             });
         });
 
