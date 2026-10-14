@@ -260,6 +260,30 @@ class StrictExemptionsTest extends TestCase
         ];
     }
 
+    public function testModalOnlyRendersTheExemptionFormForSuperusers(): void
+    {
+        $this->app['view']->addNamespace('seat-connector', __DIR__.'/../src/resources/views');
+        $this->actingAs($this->account('Administrator', true));
+        $html = view('seat-connector::users.partials.edit-modal')->render();
+        $this->assertStringContainsString('id="strict-exemptions-form"', $html);
+        $this->actingAs($this->account('Connector staff'));
+        $html = view('seat-connector::users.partials.edit-modal')->render();
+        $this->assertStringNotContainsString('id="strict-exemptions-form"', $html);
+    }
+
+    public function testEditButtonUsesTheMappingIdAndEscapesTheNickname(): void
+    {
+        $profile = $this->spud();
+        $profile->name_override = '" onmouseover="alert(1)';
+        $this->app['view']->addNamespace('seat-connector', __DIR__.'/../src/resources/views');
+        $this->actingAs($this->account('Administrator', true));
+        $html = view('seat-connector::users.partials.actions-button', ['row' => $profile])->render();
+        $this->assertStringContainsString('data-connector-type="discord"', $html);
+        $this->assertStringContainsString('/seat-connector/users/'.$profile->id.'/strict-exemptions', $html);
+        $this->assertStringContainsString('&quot; onmouseover=&quot;alert(1)', $html);
+        $this->assertStringNotContainsString('data-name-override="" onmouseover=', $html);
+    }
+
     public function testMappingIdIsNotUsedAsTheSeatSettingsOwner(): void
     {
         $placeholder = $this->account('Placeholder');

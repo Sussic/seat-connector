@@ -1,8 +1,6 @@
 name: Connector verification
 
 on:
-  push:
-    branches: [feature/strict-character-exemptions]
   pull_request:
     branches: [exclude-roles]
   workflow_dispatch:
@@ -34,3 +32,18 @@ jobs:
         run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Run focused integration tests
         run: composer test
+
+  modal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser-handler test dependencies
+        run: npm install --prefix "$RUNNER_TEMP/connector-ui" --no-save --no-package-lock jsdom@26.1.0 jquery@3.7.1
+      - name: Run the production modal handler tests
+        env:
+          CONNECTOR_UI_NODE_MODULES: ${{ runner.temp }}/connector-ui/node_modules
+        run: node --test tests/modal.test.cjs
