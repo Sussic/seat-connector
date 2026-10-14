@@ -57,6 +57,7 @@ Build your own [driver](./docs/ImplementDriver.md)
 
 ## Discord Strict character exemptions
 
-This fork adds superuser-approved character exemptions while requiring at least
-one valid, non-exempt character. Existing excluded-role behaviour is preserved.
+This fork stores superuser-approved character exemptions in a dedicated connector
+table while requiring at least one valid, non-exempt character. Existing
+excluded-role behaviour is preserved. This revision requires package migrations.
 See [behaviour, Docker installation and verification](docs/StrictCharacterExemptions.md).
