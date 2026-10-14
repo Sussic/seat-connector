@@ -138,6 +138,17 @@ test('malformed load data also leaves saving disabled', (t) => {
     assert.equal(h.writes.length, 0);
 });
 
+test('a null load response reports an error and leaves saving disabled', (t) => {
+    const h = fixture(t);
+    h.show();
+    h.gets.at(-1).resolve(null);
+
+    assert.equal(h.button().prop('disabled'), true);
+    assert.match(h.status(), /could not load/i);
+    h.submit();
+    assert.equal(h.writes.length, 0);
+});
+
 test('switching identities cancels the old GET and ignores a late response', (t) => {
     const h = fixture(t);
     h.show(10);

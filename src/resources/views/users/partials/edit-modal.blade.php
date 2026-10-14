@@ -79,7 +79,7 @@
             strictLoadRequest = $.getJSON(button.data('strict-exemptions-url'))
                 .done(function (data) {
                     if (version !== strictVersion) return
-                    if (!Array.isArray(data.characters) || typeof data.update_url !== 'string') {
+                    if (!data || !Array.isArray(data.characters) || typeof data.update_url !== 'string') {
                         status.text('Could not load exemptions. Close and reopen this dialog to retry.')
                         return
                     }

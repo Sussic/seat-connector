@@ -19,7 +19,7 @@ Strict access is permitted only when:
 - every other non-exempt linked character has an active token record.
 
 Exemptions are scoped to the **SeAT account and Discord**, rather than the
-Discord mapping row ID. Other accounts and connector drivers are unaffected.
+Discord mapping row ID. Exemptions do not apply to other accounts or connector drivers.
 They are stored as an integer character-ID list in the existing per-user
 settings under `seat-connector.discord_strict_exempt_characters`.
 No new database migration is required.
