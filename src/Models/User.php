@@ -24,7 +24,6 @@ namespace Warlof\Seat\Connector\Models;
 use Illuminate\Database\Eloquent\Model;
 use Seat\Eveapi\Models\Alliances\Alliance;
 use Seat\Eveapi\Models\Corporation\CorporationInfo;
-use Seat\Services\Settings\Profile;
 use Seat\Web\Models\User as SeatUser;
 
 /**
@@ -39,8 +38,6 @@ use Seat\Web\Models\User as SeatUser;
  */
 class User extends Model
 {
-    public const STRICT_EXEMPT_CHARACTERS_SETTING = 'seat-connector.discord_strict_exempt_characters';
-
     /**
      * @var string
      */
@@ -101,23 +98,15 @@ class User extends Model
             return [];
         }
 
-        $ids = Profile::get(self::STRICT_EXEMPT_CHARACTERS_SETTING, $this->user_id);
-
-        if (! is_array($ids)) {
-            return [];
-        }
-
-        // Unexpected settings fail closed rather than disabling Strict checks.
-        foreach ($ids as $id) {
-            if (! is_int($id) || $id < 1) {
-                return [];
-            }
-        }
-
-        $ids = array_values(array_unique($ids));
-        sort($ids, SORT_NUMERIC);
-
-        return $ids;
+        // A transferred token must not carry the previous account's exemption.
+        // Raw joins deliberately include soft-deleted (revoked) token records.
+        return StrictExemption::query()
+            ->join('refresh_tokens', 'refresh_tokens.character_id', '=', 'seat_connector_strict_exemptions.character_id')
+            ->where('seat_connector_strict_exemptions.user_id', $this->user_id)
+            ->where('refresh_tokens.user_id', $this->user_id)
+            ->orderBy('seat_connector_strict_exemptions.character_id')
+            ->pluck('seat_connector_strict_exemptions.character_id')
+            ->map(fn($id): int => (int) $id)->all();
     }
 
     /**

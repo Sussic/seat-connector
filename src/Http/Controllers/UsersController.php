@@ -24,7 +24,8 @@ namespace Warlof\Seat\Connector\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Seat\Eveapi\Models\Character\CharacterInfo;
-use Seat\Services\Settings\Profile;
+use Illuminate\Support\Facades\DB;
+use Seat\Web\Models\User as SeatUser;
 use Seat\Web\Http\Controllers\Controller;
 use Warlof\Seat\Connector\Jobs\NotifyDriver;
 use Warlof\Seat\Connector\Exceptions\DriverException;
@@ -33,6 +34,7 @@ use Warlof\Seat\Connector\Exceptions\InvalidDriverIdentityException;
 use Warlof\Seat\Connector\Http\DataTables\Scopes\UserDataTableScope;
 use Warlof\Seat\Connector\Http\DataTables\UserMappingDataTable;
 use Warlof\Seat\Connector\Models\User;
+use Warlof\Seat\Connector\Models\StrictExemption;
 
 /**
  * Class UsersController.
@@ -181,23 +183,30 @@ class UsersController extends Controller
         $ids = array_map('intval', $validated['characters']);
         sort($ids, SORT_NUMERIC);
 
-        $linked_ids = $identity->user->refresh_tokens()->withTrashed()->pluck('character_id')
-            ->map(fn($character_id): int => (int) $character_id)->all();
+        DB::transaction(function () use ($identity, $ids): void {
+            // Serialize edits to this account; validate against current token ownership.
+            SeatUser::whereKey($identity->user_id)->lockForUpdate()->firstOrFail();
+            $linked_ids = $identity->user->refresh_tokens()->withTrashed()->lockForUpdate()
+                ->pluck('character_id')->map(fn($character_id): int => (int) $character_id)->all();
 
-        if (array_diff($ids, $linked_ids) !== []) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'characters' => 'Every exempt character must belong to this SeAT account.',
+            if (array_diff($ids, $linked_ids) !== []) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'characters' => 'Every exempt character must belong to this SeAT account.',
+                ]);
+            }
+
+            $previous = $identity->getStrictExemptCharacterIds();
+            StrictExemption::where('user_id', $identity->user_id)->delete();
+            foreach ($ids as $character_id) {
+                StrictExemption::create(['user_id' => $identity->user_id, 'character_id' => $character_id]);
+            }
+
+            event('security.log', [
+                sprintf('Discord Strict exemptions for SeAT user %d (%s) changed from [%s] to [%s].',
+                    $identity->user_id, $identity->user->name, implode(', ', $previous), implode(', ', $ids)),
+                'connector strict exemptions',
             ]);
-        }
-
-        $previous = $identity->getStrictExemptCharacterIds();
-        Profile::set(User::STRICT_EXEMPT_CHARACTERS_SETTING, $ids, $identity->user_id);
-
-        event('security.log', [
-            sprintf('Discord Strict exemptions for SeAT user %d (%s) changed from [%s] to [%s].',
-                $identity->user_id, $identity->user->name, implode(', ', $previous), implode(', ', $ids)),
-            'connector strict exemptions',
-        ]);
+        });
 
         $message = 'Exemptions saved. A role update has been queued. At least one valid, non-exempt character is still required.';
 
