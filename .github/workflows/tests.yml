@@ -47,3 +47,35 @@ jobs:
         env:
           CONNECTOR_UI_NODE_MODULES: ${{ runner.temp }}/connector-ui/node_modules
         run: node --test tests/modal.test.cjs
+
+  mariadb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      database:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: connector_test
+          MARIADB_ROOT_PASSWORD: connector_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h localhost -uroot -pconnector_test_password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, dom, fileinfo, gd, gmp, intl, mbstring, pdo_mysql, pdo_sqlite, posix, redis, sqlite3
+          coverage: none
+          tools: composer:v2
+      - name: Install dependencies for the reported SeAT versions
+        run: composer update --with eveseat/web:5.0.35 --with eveseat/eveapi:5.0.37 --no-interaction --prefer-dist --no-progress
+      - name: Verify migrations and enforcement against MariaDB
+        env:
+          CONNECTOR_TEST_DB_DRIVER: mysql
+          CONNECTOR_TEST_DB_PASSWORD: connector_test_password
+        run: composer test
