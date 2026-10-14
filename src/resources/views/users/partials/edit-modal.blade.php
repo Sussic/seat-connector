@@ -130,18 +130,24 @@
             }).get()
 
             submit.prop('disabled', true)
+            form.find('input[name="characters[]"]').prop('disabled', true)
             $('#strict-exemptions-status').text('Saving exemptions…')
 
             $.ajax({
                 url: strictUpdateUrl,
                 method: 'PUT',
                 contentType: 'application/json',
+                dataType: 'json',
                 data: JSON.stringify({
                     _token: form.find('input[name="_token"]').val(),
                     characters: characters
                 })
             }).done(function (data) {
-                if (version === strictVersion) $('#strict-exemptions-status').text(data.message)
+                if (version !== strictVersion) return
+                const message = data && data.success === true && typeof data.message === 'string'
+                    ? data.message
+                    : 'Could not confirm the save. Close and reopen this dialog to check the saved exemptions.'
+                $('#strict-exemptions-status').text(message)
             }).fail(function (xhr) {
                 if (version !== strictVersion) return
                 const data = xhr.responseJSON
@@ -150,7 +156,10 @@
                     : 'Could not confirm the save. Close and reopen this dialog to check the saved exemptions.'
                 $('#strict-exemptions-status').text(message)
             }).always(function () {
-                if (version === strictVersion) submit.prop('disabled', false)
+                if (version === strictVersion) {
+                    submit.prop('disabled', false)
+                    form.find('input[name="characters[]"]').prop('disabled', false)
+                }
             })
         })
 
