@@ -85,16 +85,26 @@
                     }
 
                     data.characters.forEach(function (character) {
-                        const id = 'strict-exempt-character-' + character.id
-                        const row = $('<div>').addClass('form-check mb-1')
+                        const id = 'strict-exempt-character-' + character.id;
+                        const row = $('<div>').addClass('form-check mb-1');
                         const input = $('<input>').addClass('form-check-input')
                             .attr({ type: 'checkbox', id: id, name: 'characters[]', value: character.id })
-                            .prop('checked', character.exempt)
+                            .prop('checked', character.exempt);
+                        
+                        // Define the styled HTML using your specific icons, Bootstrap text colors, and Blade translations
+                        const validHtml = '<span class="text-success"><i class="fas fa-check-circle"></i>Valid Token</span>';
+                        const invalidHtml = '<span class="text-danger"><i class="fas fa-times-circle"></i>Invalid Token</span>';
+                        
+                        // Determine which status to show
+                        const statusIndicator = character.has_token ? validHtml : invalidHtml;
+
+                        // Use .html() instead of .text() to render the tags
                         const label = $('<label>').addClass('form-check-label').attr('for', id)
-                            .text(character.name + (character.has_token ? ' — valid token' : ' — invalid token'))
-                        row.append(input, label)
-                        characters.append(row)
-                    })
+                            .html(character.name + ' - ' + statusIndicator);
+                            
+                        row.append(input, label);
+                        characters.append(row);
+                    });
 
                     strictUpdateUrl = data.update_url
                     status.text(data.characters.length ? '' : 'No linked characters.')
