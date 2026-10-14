@@ -24,6 +24,7 @@ namespace Warlof\Seat\Connector\Models;
 use Illuminate\Database\Eloquent\Model;
 use Seat\Eveapi\Models\Alliances\Alliance;
 use Seat\Eveapi\Models\Corporation\CorporationInfo;
+use Seat\Services\Settings\Profile;
 use Seat\Web\Models\User as SeatUser;
 
 /**
@@ -38,6 +39,8 @@ use Seat\Web\Models\User as SeatUser;
  */
 class User extends Model
 {
+    public const STRICT_EXEMPT_CHARACTERS_SETTING = 'seat-connector.discord_strict_exempt_characters';
+
     /**
      * @var string
      */
@@ -76,7 +79,45 @@ class User extends Model
      */
     public function areAllTokensValid(): bool
     {
-        return $this->user->refresh_tokens->count() == $this->user->all_characters()->count();
+        $exemptions = $this->getStrictExemptCharacterIds();
+
+        // Include revoked tokens so missing authentication cannot disappear from the check.
+        $required_ids = $this->user->refresh_tokens()->withTrashed()
+            ->pluck('character_id')->diff($exemptions);
+        $active_ids = $this->user->refresh_tokens()
+            ->pluck('character_id')->diff($exemptions);
+
+        return $active_ids->isNotEmpty() && $required_ids->diff($active_ids)->isEmpty();
+    }
+
+    /**
+     * Only Discord uses these account-scoped exemptions.
+     *
+     * @return int[]
+     */
+    public function getStrictExemptCharacterIds(): array
+    {
+        if ($this->connector_type !== 'discord') {
+            return [];
+        }
+
+        $ids = Profile::get(self::STRICT_EXEMPT_CHARACTERS_SETTING, $this->user_id);
+
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        // Unexpected settings fail closed rather than disabling Strict checks.
+        foreach ($ids as $id) {
+            if (! is_int($id) || $id < 1) {
+                return [];
+            }
+        }
+
+        $ids = array_values(array_unique($ids));
+        sort($ids, SORT_NUMERIC);
+
+        return $ids;
     }
 
     /**
@@ -97,9 +138,9 @@ class User extends Model
     {
         $strict_mode = setting('seat-connector.strict', true);
 
-        $active_tokens = $this->user->refresh_tokens;
+        $active_tokens = $this->user->refresh_tokens();
 
-        if (empty($active_tokens) || ($strict_mode && ! $this->areAllTokensValid()) || ! $this->isEnabledAccount()) {
+        if (! $active_tokens->exists() || ($strict_mode && ! $this->areAllTokensValid()) || ! $this->isEnabledAccount()) {
             return [];
         }
 
