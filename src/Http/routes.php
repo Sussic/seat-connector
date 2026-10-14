@@ -34,6 +34,14 @@ Route::group([
         Route::group([
             'middleware' => 'can:global.superuser',
         ], function (): void {
+            Route::get('/users/{id}/strict-exemptions')
+                ->name('seat-connector.users.strict-exemptions.show')
+                ->uses('UsersController@getStrictExemptions');
+
+            Route::put('/users/{id}/strict-exemptions')
+                ->name('seat-connector.users.strict-exemptions.update')
+                ->uses('UsersController@updateStrictExemptions');
+
             Route::get('/settings')
                 ->name('seat-connector.settings')
                 ->uses('SettingsController@index');
